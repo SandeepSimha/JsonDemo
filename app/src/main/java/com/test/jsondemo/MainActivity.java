@@ -1,12 +1,26 @@
 package com.test.jsondemo;
 
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.ListAdapter;
+import android.widget.ListView;
+import android.widget.SimpleAdapter;
 import android.widget.TextView;
+
+import com.google.gson.Gson;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
     static final String TAG = "MainActivity";
@@ -19,6 +33,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         //
+//        parseStaticData();
+        //Load data from url
+        loadDataFromUrl();
+    }
+
+    private void parseStaticData() {
         TextView textView = (TextView) findViewById(R.id.text);
         try {
             parseJson();
@@ -125,6 +145,73 @@ public class MainActivity extends AppCompatActivity {
         systemData.setSunset(sunrise);
         //Finally add to Main class.
         testData.setSystemData(systemData);
+    }
+
+    public void loadDataFromUrl() {
+        final String url = "http://api.androidhive.info/contacts/";
+
+        //OnCreate ==>UI
+        //It will throw exception when perform n/w operation
+//        NetworkOnMainThreadException
+        new AsyncTask<String, Void, String>() {
+
+            @Override
+            protected String doInBackground(String... params) {
+                return Util.performGET(params[0]);
+            }
+
+            @Override
+            protected void onPostExecute(String s) {
+                super.onPostExecute(s);
+//                Toast.makeText(MainActivity.this, "Result is :" + s, Toast.LENGTH_LONG).show();
+                parseContacts(s);
+            }
+        }.execute(url);
+    }
+
+    public void parseContacts(String jsonStr) {
+        //
+        ContactsResponse response = new Gson().fromJson(jsonStr, ContactsResponse.class);
+        final List<Contacts> contactsList = response.getContacts();
+        int size = contactsList.size();
+        Log.e("MainActivity", "parseContacts: no of contacts is -" + size);
+
+        ListView listView = (ListView) findViewById(R.id.listView);
+        listView.setAdapter(createSimpleAdapter(contactsList));
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Contacts contacts = contactsList.get(position);
+                Log.e("MainActivity", "onItemClick: name - " + contacts.getName());
+            }
+        });
+    }
+
+    public ListAdapter createArrayAdapter(List<Contacts> contactsList) {
+        ArrayAdapter<Contacts> adapter = new ArrayAdapter<Contacts>(this,
+                android.R.layout.simple_list_item_1, contactsList);
+        return adapter;
+    }
+
+    public ListAdapter createSimpleAdapter(List<Contacts> contactsList) {
+        List<Map<String, String>> mapsList = new ArrayList<>();
+
+        for (Contacts contacts : contactsList) {
+            //Creating Map
+            Map<String, String> map = new HashMap<>();
+            map.put("name", contacts.getName());
+            map.put("email", contacts.getEmail());
+            map.put("address", contacts.getAddress());
+            //Insert
+            mapsList.add(map);
+        }
+        String[] from = new String[]{"name", "email", "address"};
+        int to[] = new int[]{R.id.txt_name, R.id.txt_email, R.id.txt_address};
+
+        SimpleAdapter adapter = new SimpleAdapter(this, mapsList, R.layout.contacts_row,
+                from, to);
+
+        return adapter;
     }
 
 
